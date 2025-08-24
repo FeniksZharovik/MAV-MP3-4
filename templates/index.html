@@ -4,7 +4,8 @@
      x-data="{loading:false, progress:0}">
   <h1 class="text-2xl font-bold mb-4">🎵 Video & Audio Downloader</h1>
   
-  <form method="POST" @submit="loading=true; simulateProgress()">
+  <form method="POST" 
+        @submit="loading=true; progress=0; simulateProgress()">
     <input type="text" name="url" placeholder="Masukkan URL video..." 
            class="w-full p-3 rounded mb-4 text-black" required>
     <select name="type" class="w-full p-3 rounded mb-4 text-black">
@@ -12,17 +13,19 @@
       <option value="mp3">Audio (MP3)</option>
     </select>
     <button type="submit" 
-            class="bg-blue-500 w-full py-3 rounded-lg hover:bg-blue-600 transition">Konversi</button>
+            class="bg-blue-500 w-full py-3 rounded-lg hover:bg-blue-600 transition">
+      Konversi
+    </button>
   </form>
 
   <!-- Loading bar -->
-  <div class="mt-6" x-show="loading">
-    <p class="mb-2">Sedang mengonversi...</p>
-    <div class="w-full bg-gray-700 rounded-full h-4">
-      <div class="bg-green-500 h-4 rounded-full transition-all" 
+  <div class="mt-6" x-show="loading" x-transition>
+    <p class="mb-2 animate-pulse">⚡ Sedang mengonversi...</p>
+    <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+      <div class="bg-green-500 h-4 rounded-full transition-all duration-200" 
            :style="`width: ${progress}%`"></div>
     </div>
-    <p class="mt-2" x-text="progress + '%'"></p>
+    <p class="mt-2 text-sm text-gray-300" x-text="progress + '%'"></p>
   </div>
 </div>
 
@@ -30,12 +33,12 @@
 function simulateProgress(){
     let progressBar = document.querySelector('[x-data]').__x.$data;
     let interval = setInterval(()=>{
-        if(progressBar.progress >= 100){
+        if(progressBar.progress >= 95){
             clearInterval(interval);
         } else {
-            progressBar.progress += Math.floor(Math.random()*5)+1;
+            progressBar.progress += Math.floor(Math.random()*3)+1;
         }
-    }, 200);
+    }, 150);
 }
 </script>
 {% endblock %}
