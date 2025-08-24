@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-lg">
+  <h1 class="text-2xl font-bold mb-4 text-center">🎵 Video & Audio Downloader</h1>
+  <form method="POST">
+    <input type="text" name="url" placeholder="Masukkan URL video..." class="w-full p-3 rounded mb-4 text-black" required>
+    <select name="type" class="w-full p-3 rounded mb-4 text-black">
+      <option value="mp4">Video (MP4)</option>
+      <option value="mp3">Audio (MP3)</option>
+    </select>
+    <button type="submit" class="bg-blue-500 w-full py-3 rounded-lg hover:bg-blue-600 transition">Download</button>
+  </form>
+</div>
+{% endblock %}

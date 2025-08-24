@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-lg text-center">
+  <h2 class="text-xl font-bold mb-4">✅ Download Berhasil!</h2>
+  <p class="mb-4">{{ title }}</p>
+  <a href="{{ url_for('download_file', filename=file) }}" class="bg-green-500 px-4 py-2 rounded hover:bg-green-600 transition">💾 Download File</a>
+  <a href="{{ url_for('index') }}" class="ml-2 text-blue-400 underline">Kembali</a>
+</div>
+{% endblock %}
