@@ -1,7 +1,7 @@
 import os
-import shutil
 import re
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash, send_from_directory
+import shutil
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 import yt_dlp
 
 app = Flask(__name__)
@@ -14,27 +14,29 @@ os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 # favicon route
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(
-        os.path.join(app.root_path, 'static'),
-        'favicon.ico',
+    return send_file(
+        os.path.join(app.root_path, 'static', 'favicon.ico'),
         mimetype='image/vnd.microsoft.icon'
     )
 
 # cek ffmpeg
 FFMPEG_PATH = shutil.which("ffmpeg")
 if not FFMPEG_PATH:
-    # kalau manual Windows, arahkan langsung ke ffmpeg.exe
     FFMPEG_PATH = r"C:\ffmpeg\ffmpeg-8.0-full_build\bin\ffmpeg.exe"
 
-# fungsi sanitasi nama file
-def safe_filename(filename):
-    return re.sub(r'[\\/*?:"<>|]', "", filename)
+def sanitize_filename(name, ext):
+    """Buat nama file aman untuk Windows"""
+    name = re.sub(r'[<>:"/\\|?*]', '', name)  # hapus karakter ilegal
+    name = name.replace("\n", "").replace("\r", "").strip()
+    if not name:
+        name = "download"
+    name = name[:80]  # batasi panjang biar aman
+    return f"{name}{ext}"
 
 def download_media(url, download_type):
-    # template nama file -> judul + id biar aman dan unik
     ydl_opts = {
         "ffmpeg_location": FFMPEG_PATH,
-        "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title).200B-%(id)s.%(ext)s"),
+        "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(id)s.%(ext)s"),  # pakai ID biar aman
         "prefer_ffmpeg": True,
         "restrictfilenames": True,
         "allow_unplayable_formats": False,
@@ -59,15 +61,22 @@ def download_media(url, download_type):
         info = ydl.extract_info(url, download=True)
         filename = ydl.prepare_filename(info)
 
-        # sanitasi nama file hasil
-        base, ext = os.path.splitext(filename)
-        safe_name = safe_filename(os.path.basename(base)) + ext
+        ext = ".mp3" if download_type == "mp3" else ".mp4"
+        title = info.get("title", "unknown")
+
+        safe_name = sanitize_filename(title, ext)
         safe_path = os.path.join(DOWNLOAD_FOLDER, safe_name)
 
-        if filename != safe_path:
+        # rename hasil download agar bersih
+        base, _ = os.path.splitext(filename)
+        candidate = base + ext
+        if os.path.exists(candidate):
+            os.rename(candidate, safe_path)
+        elif os.path.exists(filename):
             os.rename(filename, safe_path)
 
-        return safe_path, info.get("title", "unknown")
+        print(f"[DEBUG] File disimpan: {safe_path}")
+        return safe_path, safe_name, title
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -84,23 +93,14 @@ def index():
             return redirect(url_for("index"))
 
         try:
-            file_path, title = download_media(url, download_type)
-            return render_template("result.html", file=os.path.basename(file_path), title=title)
+            file_path, file_name, title = download_media(url, download_type)
+            # langsung download
+            return send_file(file_path, as_attachment=True)
         except Exception as e:
             flash(f"Gagal: {str(e)}")
             return redirect(url_for("index"))
 
     return render_template("index.html")
-
-@app.route("/download/<filename>")
-def download_file(filename):
-    file_path = os.path.join(DOWNLOAD_FOLDER, filename)
-
-    if not os.path.exists(file_path):
-        flash("❌ File tidak ditemukan!")
-        return redirect(url_for("index"))
-
-    return send_file(file_path, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(debug=True)
