@@ -1,25 +1,42 @@
 import os
 import shutil
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash
+import re
+from flask import Flask, render_template, request, send_file, redirect, url_for, flash, send_from_directory
 import yt_dlp
 
 app = Flask(__name__)
 app.secret_key = "supersecret"
+
+# Folder download
 DOWNLOAD_FOLDER = os.path.join(os.getcwd(), "downloads")
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-# Cek apakah ffmpeg ada
+# favicon route
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
+
+# cek ffmpeg
 FFMPEG_PATH = shutil.which("ffmpeg")
 if not FFMPEG_PATH:
-    # fallback manual (misalnya di Windows)
-    # ganti sesuai lokasi ffmpeg kamu
-    FFMPEG_PATH = r"C:\ffmpeg\ffmpeg-8.0-full_build\bin"
+    # kalau manual Windows, arahkan langsung ke ffmpeg.exe
+    FFMPEG_PATH = r"C:\ffmpeg\ffmpeg-8.0-full_build\bin\ffmpeg.exe"
+
+# fungsi sanitasi nama file
+def safe_filename(filename):
+    return re.sub(r'[\\/*?:"<>|]', "", filename)
 
 def download_media(url, download_type):
+    # template nama file -> judul + id biar aman dan unik
     ydl_opts = {
         "ffmpeg_location": FFMPEG_PATH,
-        "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title)s.%(ext)s"),
+        "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title).200B-%(id)s.%(ext)s"),
         "prefer_ffmpeg": True,
+        "restrictfilenames": True,
         "allow_unplayable_formats": False,
     }
 
@@ -34,18 +51,23 @@ def download_media(url, download_type):
         })
     else:  # mp4
         ydl_opts.update({
-            "format": "mp4/bestvideo+bestaudio/best",
+            "format": "bestvideo+bestaudio/best",
             "merge_output_format": "mp4",
         })
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
         filename = ydl.prepare_filename(info)
-        if download_type == "mp3":
-            filename = os.path.splitext(filename)[0] + ".mp3"
-        elif not os.path.exists(filename):
-            filename = os.path.splitext(filename)[0] + ".mp4"
-        return filename, info.get("title", "unknown")
+
+        # sanitasi nama file hasil
+        base, ext = os.path.splitext(filename)
+        safe_name = safe_filename(os.path.basename(base)) + ext
+        safe_path = os.path.join(DOWNLOAD_FOLDER, safe_name)
+
+        if filename != safe_path:
+            os.rename(filename, safe_path)
+
+        return safe_path, info.get("title", "unknown")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -57,7 +79,7 @@ def index():
             flash("Harap masukkan URL video!")
             return redirect(url_for("index"))
 
-        if not shutil.which("ffmpeg") and not os.path.exists(os.path.join(FFMPEG_PATH, "ffmpeg.exe")):
+        if not os.path.exists(FFMPEG_PATH):
             flash("❌ FFmpeg tidak ditemukan. Silakan install ffmpeg atau set lokasi di app.py!")
             return redirect(url_for("index"))
 
@@ -73,6 +95,11 @@ def index():
 @app.route("/download/<filename>")
 def download_file(filename):
     file_path = os.path.join(DOWNLOAD_FOLDER, filename)
+
+    if not os.path.exists(file_path):
+        flash("❌ File tidak ditemukan!")
+        return redirect(url_for("index"))
+
     return send_file(file_path, as_attachment=True)
 
 if __name__ == "__main__":
