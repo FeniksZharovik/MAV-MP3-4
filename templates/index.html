@@ -4,8 +4,7 @@
      x-data="{loading:false, progress:0}">
   <h1 class="text-2xl font-bold mb-4">🎵 Video & Audio Downloader</h1>
   
-  <form method="POST" 
-        @submit="loading=true; progress=0; simulateProgress()">
+  <form method="POST" id="dlForm">
     <input type="text" name="url" placeholder="Masukkan URL video..." 
            class="w-full p-3 rounded mb-4 text-black" required>
     <select name="type" class="w-full p-3 rounded mb-4 text-black">
@@ -30,15 +29,22 @@
 </div>
 
 <script>
-function simulateProgress(){
+document.getElementById("dlForm").addEventListener("submit", function(){
     let progressBar = document.querySelector('[x-data]').__x.$data;
+    progressBar.loading = true;
+    progressBar.progress = 0;
+
     let interval = setInterval(()=>{
-        if(progressBar.progress >= 95){
-            clearInterval(interval);
-        } else {
-            progressBar.progress += Math.floor(Math.random()*3)+1;
-        }
-    }, 150);
-}
+        fetch("/progress")
+          .then(res=>res.json())
+          .then(data=>{
+              let percent = parseFloat(data.percent);
+              progressBar.progress = percent;
+              if(percent >= 100){
+                clearInterval(interval);
+              }
+          });
+    }, 1000);
+});
 </script>
 {% endblock %}
